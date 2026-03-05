@@ -1,0 +1,47 @@
+@page "/testpage"
+@using Render.Client.State
+@inject LoginState LoginState
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudCard Elevation="3">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h5" Color="Color.Primary" Align="Align.Center">Test Page</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            @if (LoginState.IsAuthenticated())
+            {
+                <MudText Typo="Typo.body1" Color="Color.Success" Align="Align.Center">
+                    User is authenticated: @LoginState.CurrentUser?.Username
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" OnClick="HandleLogout" Class="mt-4">
+                    Logout
+                </MudButton>
+            }
+            else
+            {
+                <MudText Typo="Typo.body1" Color="Color.Error" Align="Align.Center">
+                    User is not authenticated
+                </MudText>
+            }
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!LoginState.IsAuthenticated())
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await LoginState.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}

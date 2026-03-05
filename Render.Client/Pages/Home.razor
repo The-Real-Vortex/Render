@@ -1,0 +1,78 @@
+﻿@page "/"
+@using Render.Shared.Models
+@using Render.Client.Components
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
+    @foreach (var post in posts)
+    {
+        <Post @key="post.Id" PostData="@post" />
+    }
+
+    <div id="scroll-sensor" style="height: 20px;">
+        @if (_isLoadingMore)
+        {
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+        }
+    </div>
+</MudContainer>
+
+@code {
+    private List<PostResponseDto> posts = new();
+    private bool _isLoadingMore = false;
+    private int _skip = 0;
+    private int _take = 10;
+    private Guid _sessionId;
+    
+    private DotNetObjectReference<Home>? _objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sessionIdString = await JSRuntime.InvokeAsync<string?>("cookieManager.getCookie", "feedSessionId");
+            
+            if (string.IsNullOrEmpty(sessionIdString) || !Guid.TryParse(sessionIdString, out _sessionId))
+            {
+                _sessionId = Guid.NewGuid();
+                await JSRuntime.InvokeVoidAsync("cookieManager.setCookie", "feedSessionId", _sessionId.ToString(), 1);
+            }
+
+            _objRef = DotNetObjectReference.Create(this);
+            
+            await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
+        }
+    }
+
+    [JSInvokable]
+    public async Task LoadMoreData()
+    {
+        if (_isLoadingMore) return;
+        
+        _isLoadingMore = true;
+        StateHasChanged();
+
+        try 
+        {
+            var newPosts = await Http.GetFromJsonAsync<List<PostResponseDto>>(
+                $"api/post?skip={_skip}&take={_take}&sessionId={_sessionId}");
+            if (newPosts?.Any() == true)
+            {
+                posts.AddRange(newPosts);
+                _skip += _take;
+            }
+        }
+        finally 
+        {
+            _isLoadingMore = false;
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _objRef?.Dispose();
+    }
+}

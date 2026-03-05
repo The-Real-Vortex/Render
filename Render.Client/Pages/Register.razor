@@ -1,0 +1,74 @@
+@page "/register"
+@using Render.Client.Models
+@using Render.Client.State
+@using System.ComponentModel.DataAnnotations
+@using MudBlazor.Components
+@using System.Linq
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject RegisterState State
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    @if (State.UserModel != null)
+    {
+        <MudForm Model="@State.UserModel" @bind-IsValid="_formIsValid">
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5" Color="Color.Primary" Align="Align.Center">Create Account</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                        <MudTextField T="string" Label="Username" Variant="Variant.Outlined" 
+                                    @bind-Value="State.UserModel.Username" For="@(() => State.UserModel.Username)"
+                                    Validation="@(async (string value) => await State.ValidateUsernameAsync(value))"
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person"
+                                    Immediate="true"
+                                    DebounceInterval="500"/>
+
+                        <MudTextField T="string" Label="E-Mail" Variant="Variant.Outlined" 
+                                    @bind-Value="State.UserModel.Email" For="@(() => State.UserModel.Email)"
+                                    Validation="@(async (string value) => await State.ValidateEmailAsync(value))"
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email"
+                                    Immediate="true"
+                                    DebounceInterval="500"/>
+
+                        <MudTextField T="string" Label="Password" Variant="Variant.Outlined" 
+                                    InputType="InputType.Password"
+                                    @bind-Value="State.UserModel.Password" For="@(() => State.UserModel.Password)"
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock"
+                                    Immediate="true"/>
+
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Optional</MudText>
+
+                        <MudTextField T="string" Label="Phone Number" Variant="Variant.Outlined" 
+                                    @bind-Value="State.UserModel.PhoneNumber" For="@(() => State.UserModel.PhoneNumber)"
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Phone"
+                                    Immediate="true"/>
+
+                        <MudTextField T="string" Label="Bio" Lines="3"
+                                    @bind-Value="State.UserModel.Bio" For="@(() => State.UserModel.Bio)"
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Article"
+                                    Variant="Variant.Outlined"
+                                    Immediate="true"/>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" href="/">
+                        Cancel
+                    </MudButton>
+                    <MudSpacer/>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
+                            Disabled="@(!_formIsValid || string.IsNullOrEmpty(State.UserModel.Username) || string.IsNullOrEmpty(State.UserModel.Email) || string.IsNullOrEmpty(State.UserModel.Password))" OnClick="State.RegisterUserAsync" href="/login">
+                        Register
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudForm>
+    }
+</MudContainer>
+
+@code {
+    bool _formIsValid = false;
+}

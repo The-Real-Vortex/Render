@@ -1,0 +1,171 @@
+﻿@using Render.Shared.Models
+@using Render.Client.State
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject LoginState LoginState
+@implements IDisposable
+
+@if (PostData != null && !_isDeleted)
+{
+    <MudCard Elevation="3" Class="mb-4">
+        <MudCardHeader>
+            <CardHeaderAvatar>
+                <MudAvatar Color="Color.Secondary" Size="Size.Large">@GetUserInitial()</MudAvatar>
+            </CardHeaderAvatar>
+            <CardHeaderContent>
+                <MudText Typo="Typo.body1" Class="fw-bold">@PostData.Author.Username</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@GetTimeAgo()</MudText>
+            </CardHeaderContent>
+            <CardHeaderActions>
+                <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Default" OnClick="@(() => _showOptions = !_showOptions)" />
+                <MudPopover Open="_showOptions" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Paper="false">
+                    <PostOptions PostId="@PostData.Id"
+                                 IsOwner="@(LoginState.CurrentUser?.Id == PostData.Author.Id)"
+                                 OnClose="@(() => _showOptions = false)"
+                                 OnDeleted="HandleDeleted" />
+                </MudPopover>
+                <MudOverlay Visible="_showOptions" OnClick="@(() => _showOptions = false)" LockScroll="false" />
+            </CardHeaderActions>
+        </MudCardHeader>
+
+        @if (PostData.Image != null)
+        {
+            <MudCardMedia Image="@GetImageSource()" Height="400" />
+        }
+
+        <MudCardActions Class="d-flex justify-space-between px-3 py-2">
+            <div class="d-flex align-center">
+                <div class="d-flex align-center mr-2">
+                    <MudIconButton Icon="@(_isLiked ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
+                                   Color="@(_isLiked ? Color.Error : Color.Default)"
+                                   Size="Size.Medium"
+                                   OnClick="ToggleLike" />
+                    <MudText Typo="Typo.body2" Style="margin-left:-4px">@FormatCount(_displayedLikesCount)</MudText>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Outlined.ChatBubbleOutline" Color="Color.Default" Size="Size.Medium" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Share" Color="Color.Default" Size="Size.Medium" />
+            </div>
+            <div>
+                <MudIconButton Icon="@Icons.Material.Outlined.BookmarkBorder" Color="Color.Default" Size="Size.Medium" />
+            </div>
+        </MudCardActions>
+
+        <MudCardContent Class="pt-0">
+            <MudText Typo="Typo.body2">
+                <strong>@PostData.Author.Username</strong> @PostData.Content
+            </MudText>
+        </MudCardContent>
+    </MudCard>
+}
+
+@code {
+    [Parameter]
+    public PostResponseDto? PostData { get; set; }
+
+    private bool _isLiked;
+    private bool _likedOnServer;
+    private int _displayedLikesCount;
+    private bool _showOptions;
+    private bool _isDeleted;
+    private CancellationTokenSource? _pendingCts;
+
+    protected override void OnParametersSet()
+    {
+        _isLiked = PostData?.IsLikedByCurrentUser ?? false;
+        _likedOnServer = _isLiked;
+        _displayedLikesCount = PostData?.LikesCount ?? 0;
+    }
+
+    private void ToggleLike()
+    {
+        if (!LoginState.IsAuthenticated())
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _pendingCts?.Cancel();
+        _pendingCts?.Dispose();
+        _pendingCts = null;
+
+        _isLiked = !_isLiked;
+        _displayedLikesCount += _isLiked ? 1 : -1;
+
+        if (_isLiked == _likedOnServer)
+            return;
+
+        var intended = _isLiked;
+        var cts = new CancellationTokenSource();
+        _pendingCts = cts;
+        _ = SyncLikeAsync(intended, cts.Token);
+    }
+
+    private async Task SyncLikeAsync(bool intended, CancellationToken cancellationToken)
+    {
+        try
+        {
+            HttpResponseMessage response;
+            if (intended)
+                response = await Http.PostAsync($"api/like/{PostData!.Id}", null, cancellationToken);
+            else
+                response = await Http.DeleteAsync($"api/like/{PostData!.Id}", cancellationToken);
+
+            if (!cancellationToken.IsCancellationRequested && response.IsSuccessStatusCode)
+                _likedOnServer = intended;
+        }
+        catch (OperationCanceledException) { }
+        catch { }
+    }
+
+    private void HandleDeleted() => _isDeleted = true;
+
+    public void Dispose()
+    {
+        _pendingCts?.Cancel();
+        _pendingCts?.Dispose();
+    }
+
+    private static string FormatCount(int count) => count switch
+    {
+        >= 1_000_000 => $"{count / 1_000_000.0:0.#}M",
+        >= 1_000 => $"{count / 1_000.0:0.#}K",
+        _ => count.ToString()
+    };
+
+    private string GetUserInitial()
+    {
+        return !string.IsNullOrEmpty(PostData?.Author.Username) 
+            ? PostData.Author.Username[0].ToString().ToUpper() 
+            : "?";
+    }
+
+    private string GetTimeAgo()
+    {
+        if (PostData == null) return string.Empty;
+
+        var timeSpan = DateTime.Now - PostData.CreatedAt;
+
+        if (timeSpan.TotalMinutes < 1)
+            return "just now";
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes} minutes ago";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours} hours ago";
+        if (timeSpan.TotalDays < 7)
+            return $"{(int)timeSpan.TotalDays} days ago";
+        if (timeSpan.TotalDays < 30)
+            return $"{(int)(timeSpan.TotalDays / 7)} weeks ago";
+        if (timeSpan.TotalDays < 365)
+            return $"{(int)(timeSpan.TotalDays / 30)} months ago";
+        
+        return $"{(int)(timeSpan.TotalDays / 365)} years ago";
+    }
+
+    private string GetImageSource()
+    {
+        if (PostData?.Image == null) return string.Empty;
+        
+        var base64 = Convert.ToBase64String(PostData.Image);
+        return $"data:image/jpeg;base64,{base64}";
+    }
+}

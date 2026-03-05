@@ -1,0 +1,57 @@
+﻿@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudPaper MinWidth="160px" Class="py-1" Elevation="4">
+    <MudList T="string" Dense="true" DisablePadding="true">
+        <MudListItem OnClick="CopyLink">
+            <MudText Typo="Typo.body2">Copy link</MudText>
+        </MudListItem>
+        <MudDivider />
+        @if (IsOwner)
+        {
+            <MudListItem OnClick="DeletePost">
+                <MudText Typo="Typo.body2" Color="Color.Error">Delete Post</MudText>
+            </MudListItem>
+        }
+        else
+        {
+            <MudListItem OnClick="Report">
+                <MudText Typo="Typo.body2" Color="Color.Error">Report</MudText>
+            </MudListItem>
+        }
+    </MudList>
+</MudPaper>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool IsOwner { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnDeleted { get; set; }
+
+    private async Task CopyLink()
+    {
+        Snackbar.Add("Link copied!", Severity.Success);
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task Report()
+    {
+        Snackbar.Add("Post reported", Severity.Info);
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task DeletePost()
+    {
+        var response = await Http.DeleteAsync($"api/post/{PostId}");
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Post deleted", Severity.Error);
+            await OnDeleted.InvokeAsync();
+        }
+        else
+        {
+            Snackbar.Add("Failed to delete post.", Severity.Error);
+        }
+        await OnClose.InvokeAsync();
+    }
+}

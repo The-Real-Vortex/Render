@@ -1,0 +1,76 @@
+﻿@page "/post/{PostId:int}"
+@inject NavigationManager NavigationManager
+@inject HttpClient HttpClient
+@using Render.Client.Components
+@using Render.Shared.Models
+
+@namespace Render.Client.Pages
+
+@if (isLoading)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex justify-center align-center" Style="min-height: 50vh;">
+        <MudStack AlignItems="AlignItems.Center">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+            <MudText Typo="Typo.body1" Class="mt-2">Load Post...</MudText>
+        </MudStack>
+    </MudContainer>
+}
+else if (errorMessage != null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+        <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
+    </MudContainer>
+}
+else if (post != null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
+        <Post PostData="@post" />
+    </MudContainer>
+}
+
+@code {
+    [Parameter]
+    public int PostId { get; set; }
+
+    private PostResponseDto? post;
+    private string? errorMessage;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostAsync();
+    }
+
+    private async Task LoadPostAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        post = null;
+
+        try
+        {
+            var response = await HttpClient.GetAsync($"api/post/{PostId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                post = await response.Content.ReadFromJsonAsync<PostResponseDto>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = $"A post with the id {PostId} does not exist.";
+            }
+            else
+            {
+                errorMessage = $"Error loading post: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

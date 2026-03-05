@@ -1,0 +1,50 @@
+@page "/login"
+@using Render.Client.Models
+@using Render.Client.State
+@using System.ComponentModel.DataAnnotations
+@using MudBlazor.Components
+@using System.Linq
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject LoginState State
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudForm Model="@State.UserModel">
+        <MudCard Elevation="3">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Color="Color.Primary" Align="Align.Center">Login</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+
+                    <MudTextField @bind-Value="@State.UserModel.Email" T="string" Label="E-Mail" Variant="Variant.Outlined"
+                                Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" 
+                                Immediate="true"/>
+
+                    <MudTextField @bind-Value="@State.UserModel.Password" T="string" Label="Password" Variant="Variant.Outlined"
+                                InputType="InputType.Password"
+                                Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" 
+                                Immediate="true"/>
+
+                    <MudSwitch @bind-Value="State.RememberMe" Color="Color.Primary" Class="mb-2">
+                        Remember Me
+                    </MudSwitch>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" href="/">
+                    Cancel
+                </MudButton>
+                <MudSpacer/>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
+                        OnClick="State.LoginUserAsync" Disabled="@(string.IsNullOrEmpty(State.UserModel.Email) || string.IsNullOrEmpty(State.UserModel.Password))">
+                    Login
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudForm>
+</MudContainer>
+
+@code {
+}
