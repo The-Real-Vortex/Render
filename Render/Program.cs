@@ -8,6 +8,8 @@ using System.Reflection;
 using Microsoft.OpenApi.Models;
 using Render.Server.Services;
 using Render.Client.State;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +23,20 @@ builder.Services.AddScoped<CreatePostState>();
 builder.Services.AddControllers(); 
 
 builder.Services.AddMemoryCache();
+
+// Configure Redis distributed cache from settings
+var redisSettings = builder.Configuration.GetSection("RedisSettings");
+var redisConn = redisSettings.GetValue<string>("ConnectionString");
+if (!string.IsNullOrWhiteSpace(redisConn))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConn;
+        options.InstanceName = redisSettings.GetValue<string>("InstanceName");
+    });
+}
+
+builder.Services.AddSingleton<ICacheSerializer, CacheSerializer>();
 
 builder.Services.AddScoped(sp => new HttpClient
 {
