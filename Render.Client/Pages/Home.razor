@@ -42,6 +42,7 @@
 
             _objRef = DotNetObjectReference.Create(this);
             
+            await LoadMoreData();
             await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
         }
     }

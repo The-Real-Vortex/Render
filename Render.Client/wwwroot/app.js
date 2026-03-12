@@ -12,7 +12,7 @@
             }
         }, {
             root: null,
-            rootMargin: '15000px',
+            rootMargin: '5000px',
             threshold: 0.1
         });
 
