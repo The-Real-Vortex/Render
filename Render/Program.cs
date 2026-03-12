@@ -11,6 +11,7 @@ using Render.Client.State;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,19 +25,14 @@ builder.Services.AddControllers();
 
 builder.Services.AddMemoryCache();
 
-// Configure Redis distributed cache from settings
+// Configure Redis sharded cache — distributes keys evenly across all databases (0–15)
 var redisSettings = builder.Configuration.GetSection("RedisSettings");
-var redisConn = redisSettings.GetValue<string>("ConnectionString");
-if (!string.IsNullOrWhiteSpace(redisConn))
-{
-    builder.Services.AddStackExchangeRedisCache(options =>
-    {
-        options.Configuration = redisConn;
-        options.InstanceName = redisSettings.GetValue<string>("InstanceName");
-    });
-}
+var redisConn = redisSettings.GetValue<string>("ConnectionString") ?? "localhost:6379";
+var redisDatabaseCount = redisSettings.GetValue<int?>("DatabaseCount") ?? 16;
 
-builder.Services.AddSingleton<ICacheSerializer, CacheSerializer>();
+var multiplexer = ConnectionMultiplexer.Connect(redisConn);
+builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+builder.Services.AddSingleton<IShardedCache>(new ShardedCache(multiplexer, redisDatabaseCount));
 
 builder.Services.AddScoped(sp => new HttpClient
 {

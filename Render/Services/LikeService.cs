@@ -1,21 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Render.Data;
 using Render.Shared;
-using Microsoft.Extensions.Caching.Distributed;
 
 namespace Render.Server.Services;
 
 public class LikeService : ILikeService
 {
     private readonly AppDbContext _context;
-    private readonly IDistributedCache _cache;
-    private readonly ICacheSerializer _serializer;
+    private readonly IShardedCache _cache;
 
-    public LikeService(AppDbContext context, IDistributedCache cache, ICacheSerializer serializer)
+    public LikeService(AppDbContext context, IShardedCache cache)
     {
         _context = context;
         _cache = cache;
-        _serializer = serializer;
     }
 
     public async Task LikePostAsync(int postId, int userId)
@@ -39,8 +36,8 @@ public class LikeService : ILikeService
 
     await _context.SaveChangesAsync();
     // Invalidate cached post DTO
-    await _serializer.RemoveAsync(_cache, $"post:{postId}");
-    await _serializer.RemoveAsync(_cache, "posts:all");
+    await _cache.RemoveAsync($"post:{postId}");
+    await _cache.RemoveAsync("posts:all");
     }
 
     public async Task UnlikePostAsync(int postId, int userId)
@@ -59,7 +56,7 @@ public class LikeService : ILikeService
 
     await _context.SaveChangesAsync();
     // Invalidate cached post DTO
-    await _serializer.RemoveAsync(_cache, $"post:{postId}");
-    await _serializer.RemoveAsync(_cache, "posts:all");
+    await _cache.RemoveAsync($"post:{postId}");
+    await _cache.RemoveAsync("posts:all");
     }
 }

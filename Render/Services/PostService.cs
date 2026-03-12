@@ -2,21 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using Render.Data;
 using Render.Shared;
 using Render.Shared.Models;
-using Microsoft.Extensions.Caching.Distributed;
 
 namespace Render.Server.Services;
 
 public class PostService : IPostService
 {
     private readonly AppDbContext _context;
-    private readonly IDistributedCache _cache;
-    private readonly ICacheSerializer _serializer;
+    private readonly IShardedCache _cache;
 
-    public PostService(AppDbContext context, IDistributedCache cache, ICacheSerializer serializer)
+    public PostService(AppDbContext context, IShardedCache cache)
     {
         _context = context;
         _cache = cache;
-        _serializer = serializer;
     }
 
     public async Task<PostResponseDto> CreatePostAsync(CreatePostDto createPostDto, int userId)
@@ -41,15 +38,15 @@ public class PostService : IPostService
             UserId = userId
         };
         
-    _context.Posts.Add(post);
-    await _context.SaveChangesAsync();
+        _context.Posts.Add(post);
+        await _context.SaveChangesAsync();
 
-    // Invalidate caches related to posts
-    await _serializer.RemoveAsync(_cache, $"post:{post.Id}");
-    await _serializer.RemoveAsync(_cache, "posts:all");
-    await _serializer.RemoveAsync(_cache, "posts:ids");
+        // Invalidate caches related to posts
+        await _cache.RemoveAsync($"post:{post.Id}");
+        await _cache.RemoveAsync("posts:all");
+        await _cache.RemoveAsync("posts:ids");
 
-    return MapToResponseDto(post);
+        return MapToResponseDto(post);
     }
 
     public static PostResponseDto MapToResponseDto(Post post, bool isLiked = false)
@@ -73,7 +70,7 @@ public class PostService : IPostService
     public async Task<PostResponseDto> GetPostByIdAsync(int postId, int? currentUserId = null)
     {
         var cacheKey = $"post:{postId}";
-        var cached = await _serializer.GetAsync<PostResponseDto>(_cache, cacheKey);
+        var cached = await _cache.GetAsync<PostResponseDto>(cacheKey);
         if (cached != null)
         {
             if (currentUserId.HasValue)
@@ -95,14 +92,14 @@ public class PostService : IPostService
             await _context.Likes.AnyAsync(l => l.PostId == postId && l.UserId == currentUserId.Value);
 
         var dto = MapToResponseDto(post, isLikedDb);
-        await _serializer.SetAsync(_cache, cacheKey, dto, TimeSpan.FromMinutes(30));
+        await _cache.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(30));
         return dto;
     }
 
     public async Task<List<PostResponseDto>> GetPostsAsync(int take = 10, int skip = 0, int? currentUserId = null)
     {
         var cacheKey = "posts:all";
-        var cached = await _serializer.GetAsync<List<PostResponseDto>>(_cache, cacheKey);
+        var cached = await _cache.GetAsync<List<PostResponseDto>>(cacheKey);
         if (cached != null)
         {
             if (currentUserId.HasValue)
@@ -119,7 +116,7 @@ public class PostService : IPostService
             .ToListAsync();
 
         var dtos = posts.Select(p => MapToResponseDto(p, false)).ToList();
-        await _serializer.SetAsync(_cache, cacheKey, dtos, TimeSpan.FromMinutes(5));
+        await _cache.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(5));
 
         if (currentUserId.HasValue)
         {
@@ -133,7 +130,7 @@ public class PostService : IPostService
     public async Task<List<int>> GetAllPostIdsAsync()
     {
         var cacheKey = "posts:ids";
-        var cached = await _serializer.GetAsync<List<int>>(_cache, cacheKey);
+        var cached = await _cache.GetAsync<List<int>>(cacheKey);
         if (cached != null)
             return cached;
 
@@ -141,7 +138,7 @@ public class PostService : IPostService
             .Select(p => p.Id)
             .ToListAsync();
 
-        await _serializer.SetAsync(_cache, cacheKey, ids, TimeSpan.FromMinutes(10));
+        await _cache.SetAsync(cacheKey, ids, TimeSpan.FromMinutes(10));
         return ids;
     }
 
@@ -151,7 +148,7 @@ public class PostService : IPostService
         var misses = new List<int>();
         foreach (var id in ids)
         {
-            var cached = await _serializer.GetAsync<PostResponseDto>(_cache, $"post:{id}");
+            var cached = await _cache.GetAsync<PostResponseDto>($"post:{id}");
             if (cached != null)
                 results.Add(cached);
             else
@@ -169,7 +166,7 @@ public class PostService : IPostService
             {
                 var dto = MapToResponseDto(p, false);
                 results.Add(dto);
-                await _serializer.SetAsync(_cache, $"post:{p.Id}", dto, TimeSpan.FromMinutes(30));
+                await _cache.SetAsync($"post:{p.Id}", dto, TimeSpan.FromMinutes(30));
             }
         }
 
@@ -202,11 +199,11 @@ public class PostService : IPostService
         if (post.UserId != userId)
             throw new UnauthorizedAccessException("You are not allowed to delete this post.");
 
-    _context.Posts.Remove(post);
-    await _context.SaveChangesAsync();
-    // Invalidate cache entries
-    await _serializer.RemoveAsync(_cache, $"post:{postId}");
-    await _serializer.RemoveAsync(_cache, "posts:all");
-    await _serializer.RemoveAsync(_cache, "posts:ids");
+        _context.Posts.Remove(post);
+        await _context.SaveChangesAsync();
+        // Invalidate cache entries
+        await _cache.RemoveAsync($"post:{postId}");
+        await _cache.RemoveAsync("posts:all");
+        await _cache.RemoveAsync("posts:ids");
     }
 }
