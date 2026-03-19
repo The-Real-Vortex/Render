@@ -67,7 +67,6 @@ public class PostController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize]
     [ProducesResponseType(typeof(PostResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PostResponseDto>> GetPostByIdAsync(int id)
@@ -84,7 +83,6 @@ public class PostController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize]
     [ProducesResponseType(typeof(List<PostResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<PostResponseDto>>> GetPostsAsync(
         [FromQuery] int take = 10,

@@ -12,12 +12,9 @@
         <MudDivider />
         @if (IsOwner || LoginState.IsAdmin())
         {
-            @if (IsOwner || LoginState.IsAdmin())
-            {
-                <MudListItem OnClick="NavigateToEdit">
-                    <MudText Typo="Typo.body2">Edit Post</MudText>
-                </MudListItem>
-            }
+            <MudListItem OnClick="NavigateToEdit">
+                <MudText Typo="Typo.body2">Edit Post</MudText>
+            </MudListItem>
             <MudListItem OnClick="DeletePost">
                 <MudText Typo="Typo.body2" Color="Color.Error">Delete Post</MudText>
             </MudListItem>

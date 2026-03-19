@@ -12,7 +12,6 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
     public bool RememberMe { get; set; } = false;
     public bool IsInitialized { get; private set; } = false;
 
-    // Add this to LoginState.cs
     public event Action? OnChange;
     private void NotifyStateChanged() => OnChange?.Invoke();
 
@@ -25,12 +24,12 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
             RememberMe = RememberMe
         });
 
-    if (response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
             CurrentUser = await response.Content.ReadFromJsonAsync<UserResponseDto>();
             snackbar.Add("Login successful!", Severity.Success);
             UserModel.Reset();
-            NotifyStateChanged(); // ADD THIS
+            NotifyStateChanged();
         }
         else
         {
@@ -39,20 +38,11 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
         }
     }
 
-    /// <summary>
-    /// Checks if the user is authenticated. If CurrentUser is null, attempts to restore from cookie.
-    /// </summary>
     public bool IsAuthenticated()
     {
         return CurrentUser != null;
     }
 
-    /// <summary>
-    /// Attempts to restore the user session from the authentication cookie.
-    /// Call this on app startup to automatically sign in users with valid cookies.
-    /// </summary>
-
-    // made with ai
     public async Task<bool> TryRestoreSessionAsync()
     {
         if (IsInitialized)
@@ -69,14 +59,13 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
                 if (CurrentUser != null)
                 {
                     snackbar.Add($"Welcome back, {CurrentUser.Username}!", Severity.Success);
-                    NotifyStateChanged(); // ADD THIS
+                    NotifyStateChanged();
                     return true;
                 }
             }
         }
         catch
         {
-            // snackbar.Add("Failed to restore session.", Severity.Error);
         }
         finally
         {
@@ -99,7 +88,7 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
 
         CurrentUser = null;
         snackbar.Add("Logged out successfully", Severity.Info);
-        NotifyStateChanged(); // ADD THIS
+        NotifyStateChanged();
     }
 
     public async Task<IEnumerable<string>> ValidateEmailAsync(string value)
