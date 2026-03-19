@@ -21,7 +21,7 @@ public class SeedController : ControllerBase
     /// <summary>
     /// Seeds the database with dummy posts (development only).
     /// </summary>
-    /// <param name="count">Number of posts to generate (default: 50, max: 200).</param>
+    /// <param name="count">Number of posts to generate (default: 50, max: 1000).</param>
     /// <returns>The number of posts created.</returns>
     /// <response code="200">Returns the number of posts created.</response>
     /// <response code="400">If no users exist in the database.</response>
@@ -35,7 +35,7 @@ public class SeedController : ControllerBase
         if (!_env.IsDevelopment())
             return Forbid();
 
-        count = Math.Clamp(count, 1, 200);
+        count = Math.Clamp(count, 1, 1000);
 
         try
         {

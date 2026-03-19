@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Render.Server.Services;
 using System.Security.Claims;
 
@@ -15,6 +16,7 @@ public class LikeController : ControllerBase
         _likeService = likeService;
     }
 
+    [Authorize]
     [HttpPost("{postId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -28,6 +30,7 @@ public class LikeController : ControllerBase
         return Ok();
     }
 
+    [Authorize]
     [HttpDelete("{postId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

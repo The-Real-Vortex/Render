@@ -26,9 +26,9 @@ public class UserController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Checks if email and username are unique.
-    /// 
+    ///
     /// Example Request:
-    /// 
+    ///
     ///     POST /api/user/register
     ///     {
     ///        "username": "NewUser",
@@ -63,9 +63,9 @@ public class UserController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Checks if email is already in the database.
-    /// 
+    ///
     /// Example Request:
-    /// 
+    ///
     ///     POST /api/user/login
     ///     {
     ///        "email": "user@example.com",
@@ -84,18 +84,19 @@ public class UserController : ControllerBase
         try
         {
             var result = await _userService.LoginAsync(loginDto);
-            
+
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, result.Id.ToString()),
                 new Claim(ClaimTypes.Name, result.Username),
-                new Claim(ClaimTypes.Email, result.Email)
+                new Claim(ClaimTypes.Email, result.Email),
+                new Claim(ClaimTypes.Role, result.Role)
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity), GetAuthenticationProperties(loginDto.RememberMe));
-            
+
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -145,7 +146,8 @@ public class UserController : ControllerBase
                         Email = user.Email,
                         PhoneNumber = user.PhoneNumber,
                         Bio = user.Bio,
-                        CreatedAt = user.CreatedAt
+                        CreatedAt = user.CreatedAt,
+                        Role = user.Role
                     });
                 }
             }

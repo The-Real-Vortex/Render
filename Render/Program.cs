@@ -8,7 +8,10 @@ using System.Reflection;
 using Microsoft.OpenApi.Models;
 using Render.Server.Services;
 using Render.Client.State;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,9 +21,33 @@ builder.Services.AddScoped<RegisterState>();
 builder.Services.AddScoped<LoginState>();
 builder.Services.AddScoped<CreatePostState>();
 
-builder.Services.AddControllers(); 
+builder.Services.AddControllers();
 
 builder.Services.AddMemoryCache();
+
+// Configure Redis sharded cache — distributes keys evenly across all databases (0–15)
+var redisSettings = builder.Configuration.GetSection("RedisSettings");
+var redisConn = redisSettings.GetValue<string>("ConnectionString") ?? "localhost:6379";
+var redisDatabaseCount = redisSettings.GetValue<int?>("DatabaseCount") ?? 16;
+var redisUsername = redisSettings.GetValue<string>("Username");
+var redisPassword = redisSettings.GetValue<string>("Password");
+
+var redisOptions = ConfigurationOptions.Parse(redisConn);
+redisOptions.AbortOnConnectFail = false;
+
+if (!string.IsNullOrWhiteSpace(redisUsername))
+{
+    redisOptions.User = redisUsername;
+}
+
+if (!string.IsNullOrWhiteSpace(redisPassword))
+{
+    redisOptions.Password = redisPassword;
+}
+
+var multiplexer = ConnectionMultiplexer.Connect(redisOptions);
+builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+builder.Services.AddSingleton<IShardedCache>(new ShardedCache(multiplexer, redisDatabaseCount));
 
 builder.Services.AddScoped(sp => new HttpClient
 {
@@ -66,6 +93,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite = SameSiteMode.Strict;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.HttpOnly = true;
+        // Return 401/403 JSON instead of redirecting
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
     });
 
 builder.Services.AddCascadingAuthenticationState();
@@ -92,7 +130,7 @@ app.UseAntiforgery();
 
 app.UseStaticFiles();
 
-app.MapControllers(); 
+app.MapControllers();
 
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()

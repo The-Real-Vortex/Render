@@ -1,8 +1,10 @@
 ﻿@page "/"
 @using Render.Shared.Models
 @using Render.Client.Components
+@using Render.Client.State
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
+@inject LoginState LoginState
 @implements IAsyncDisposable
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
@@ -25,7 +27,6 @@
     private int _skip = 0;
     private int _take = 10;
     private Guid _sessionId;
-    
     private DotNetObjectReference<Home>? _objRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -33,7 +34,7 @@
         if (firstRender)
         {
             var sessionIdString = await JSRuntime.InvokeAsync<string?>("cookieManager.getCookie", "feedSessionId");
-            
+
             if (string.IsNullOrEmpty(sessionIdString) || !Guid.TryParse(sessionIdString, out _sessionId))
             {
                 _sessionId = Guid.NewGuid();
@@ -41,7 +42,7 @@
             }
 
             _objRef = DotNetObjectReference.Create(this);
-            
+            await LoadMoreData();
             await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
         }
     }
@@ -50,11 +51,11 @@
     public async Task LoadMoreData()
     {
         if (_isLoadingMore) return;
-        
+
         _isLoadingMore = true;
         StateHasChanged();
 
-        try 
+        try
         {
             var newPosts = await Http.GetFromJsonAsync<List<PostResponseDto>>(
                 $"api/post?skip={_skip}&take={_take}&sessionId={_sessionId}");
@@ -64,7 +65,7 @@
                 _skip += _take;
             }
         }
-        finally 
+        finally
         {
             _isLoadingMore = false;
             StateHasChanged();

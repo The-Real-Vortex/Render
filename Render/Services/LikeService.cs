@@ -7,10 +7,12 @@ namespace Render.Server.Services;
 public class LikeService : ILikeService
 {
     private readonly AppDbContext _context;
+    private readonly IShardedCache _cache;
 
-    public LikeService(AppDbContext context)
+    public LikeService(AppDbContext context, IShardedCache cache)
     {
         _context = context;
+        _cache = cache;
     }
 
     public async Task LikePostAsync(int postId, int userId)
@@ -32,7 +34,10 @@ public class LikeService : ILikeService
         if (post != null)
             post.LikesCount++;
 
-        await _context.SaveChangesAsync();
+    await _context.SaveChangesAsync();
+    // Invalidate cached post DTO
+    await _cache.RemoveAsync($"post:{postId}");
+    await _cache.RemoveAsync("posts:all");
     }
 
     public async Task UnlikePostAsync(int postId, int userId)
@@ -49,6 +54,9 @@ public class LikeService : ILikeService
         if (post != null)
             post.LikesCount = Math.Max(0, post.LikesCount - 1);
 
-        await _context.SaveChangesAsync();
+    await _context.SaveChangesAsync();
+    // Invalidate cached post DTO
+    await _cache.RemoveAsync($"post:{postId}");
+    await _cache.RemoveAsync("posts:all");
     }
 }

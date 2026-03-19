@@ -12,6 +12,10 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
     public bool RememberMe { get; set; } = false;
     public bool IsInitialized { get; private set; } = false;
 
+    // Add this to LoginState.cs
+    public event Action? OnChange;
+    private void NotifyStateChanged() => OnChange?.Invoke();
+
     public async Task LoginUserAsync()
     {
         var response = await http.PostAsJsonAsync($"api/user/login?isPersistant={this.RememberMe}", new Render.Shared.Models.LoginUserDto
@@ -21,11 +25,12 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
             RememberMe = RememberMe
         });
 
-        if (response.IsSuccessStatusCode)
+    if (response.IsSuccessStatusCode)
         {
             CurrentUser = await response.Content.ReadFromJsonAsync<UserResponseDto>();
             snackbar.Add("Login successful!", Severity.Success);
             UserModel.Reset();
+            NotifyStateChanged(); // ADD THIS
         }
         else
         {
@@ -37,7 +42,7 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
     /// <summary>
     /// Checks if the user is authenticated. If CurrentUser is null, attempts to restore from cookie.
     /// </summary>
-    public bool IsAuthenticated() 
+    public bool IsAuthenticated()
     {
         return CurrentUser != null;
     }
@@ -64,6 +69,7 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
                 if (CurrentUser != null)
                 {
                     snackbar.Add($"Welcome back, {CurrentUser.Username}!", Severity.Success);
+                    NotifyStateChanged(); // ADD THIS
                     return true;
                 }
             }
@@ -90,9 +96,10 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
         {
             snackbar.Add("Failed to log out", Severity.Error);
         }
-        
+
         CurrentUser = null;
         snackbar.Add("Logged out successfully", Severity.Info);
+        NotifyStateChanged(); // ADD THIS
     }
 
     public async Task<IEnumerable<string>> ValidateEmailAsync(string value)
@@ -115,4 +122,6 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
         }
         return Array.Empty<string>();
     }
+
+    public bool IsAdmin() => CurrentUser?.Role == "Admin";
 }

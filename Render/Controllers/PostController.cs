@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Render.Shared.Models;
 using System.Runtime.InteropServices;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Render.Server.Controllers;
 
@@ -28,9 +29,9 @@ public class PostController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Creates a new post.
-    /// 
+    ///
     /// Example Request:
-    /// 
+    ///
     ///     POST /api/post/create
     ///     {
     ///        "content": "This is a new post."
@@ -41,6 +42,7 @@ public class PostController : ControllerBase
     /// <response code="200">Post creation successful. Returns the post.</response>
     /// <response code="400">If there is an error during post creation.</response>
     [HttpPost("create")]
+    [Authorize]
     [ProducesResponseType(typeof(PostResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PostResponseDto>> CreatePostAsync(CreatePostDto postDto)
@@ -65,6 +67,7 @@ public class PostController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize]
     [ProducesResponseType(typeof(PostResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PostResponseDto>> GetPostByIdAsync(int id)
@@ -81,6 +84,7 @@ public class PostController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize]
     [ProducesResponseType(typeof(List<PostResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<PostResponseDto>>> GetPostsAsync(
         [FromQuery] int take = 10,
@@ -128,6 +132,7 @@ public class PostController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -138,9 +143,11 @@ public class PostController : ControllerBase
         if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
             return Unauthorized();
 
+        var isAdmin = User.IsInRole("Admin");
+
         try
         {
-            await _postService.DeletePostAsync(id, userId);
+            await _postService.DeletePostAsync(id, userId, isAdmin);
             return Ok();
         }
         catch (UnauthorizedAccessException)
@@ -151,5 +158,24 @@ public class PostController : ControllerBase
         {
             return NotFound();
         }
+    }
+
+    [HttpPut("{id}")]
+    [Authorize]
+    public async Task<IActionResult> EditPostAsync(int id, [FromBody] EditPostDto editDto)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out int userId))
+            return Unauthorized();
+
+        var isAdmin = User.IsInRole("Admin");
+
+        try
+        {
+            await _postService.EditPostAsync(id, userId, editDto, isAdmin);
+            return Ok();
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (InvalidOperationException) { return NotFound(); }
     }
 }
