@@ -1,0 +1,5 @@
+user default off
+user admin on >local123 ~* +@all
+user normal_db_user on >local123 ~* +@read +@write +@keyspace +@connection -@admin -@dangerous
+user readonly_user on >local123 ~* +@read +@keyspace +@connection -@write -@admin -@dangerous
+user writeonly_user on >local123 ~* +@write +@keyspace +@connection -@read -@admin -@dangerous

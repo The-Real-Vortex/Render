@@ -1,0 +1,143 @@
+@page "/edit-post/{PostId:int}"
+@using Render.Client.State
+@using Render.Shared.Models
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject LoginState LoginState
+
+@if (_isLoading)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex justify-center align-center mt-16">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </MudContainer>
+}
+else if (_post == null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+        <MudAlert Severity="Severity.Error">Post not found or you do not have permission to edit it.</MudAlert>
+        <MudButton Class="mt-4" Href="/" Variant="Variant.Outlined">Back to feed</MudButton>
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+        <MudForm @bind-IsValid="_formIsValid" @ref="_form">
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5" Color="Color.Primary" Align="Align.Center">Edit Post</MudText>
+                        @if (LoginState.IsAdmin() && !IsOwner())
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Warning" Align="Align.Center">
+                                Editing as Admin
+                            </MudText>
+                        }
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTextField T="string"
+                                  Label="Content"
+                                  Variant="Variant.Outlined"
+                                  @bind-Value="_editedContent"
+                                  Lines="5"
+                                  Immediate="true"
+                                  Validation="@((string c) => ValidateContent(c))"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.TextFields" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true"
+                               OnClick="@(() => Navigation.NavigateTo($"/post/{PostId}"))">
+                        Cancel
+                    </MudButton>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                               Disabled="@(!_formIsValid || string.IsNullOrWhiteSpace(_editedContent))"
+                               OnClick="SaveEdit">
+                        Save
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudForm>
+    </MudContainer>
+}
+
+@code {
+    [Parameter] public int PostId { get; set; }
+
+    private PostResponseDto? _post;
+    private string _editedContent = string.Empty;
+    private bool _isLoading = true;
+    private bool _formIsValid = false;
+    private MudForm _form = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Block access if not logged in
+        if (!LoginState.IsAuthenticated())
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadPost();
+    }
+
+    private async Task LoadPost()
+    {
+        _isLoading = true;
+        try
+        {
+            var response = await Http.GetAsync($"api/post/{PostId}");
+            if (response.IsSuccessStatusCode)
+            {
+                _post = await response.Content.ReadFromJsonAsync<PostResponseDto>();
+
+                // Block non-owners who are also not admins
+                if (_post != null && !IsOwner() && !LoginState.IsAdmin())
+                {
+                    _post = null; // Will show the error state
+                    return;
+                }
+
+                _editedContent = _post?.Content ?? string.Empty;
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveEdit()
+    {
+        var response = await Http.PutAsJsonAsync($"api/post/{PostId}", new EditPostDto
+        {
+            Content = _editedContent
+        });
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Post updated successfully!", Severity.Success);
+            Navigation.NavigateTo($"/post/{PostId}");
+        }
+        else
+        {
+            Snackbar.Add("Failed to update post.", Severity.Error);
+        }
+    }
+
+    private bool IsOwner() => LoginState.CurrentUser?.Id == _post?.Author.Id;
+
+    private string? ValidateContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return "Content cannot be empty.";
+        if (content.Length < 10)
+            return "Content must be at least 10 characters.";
+        if (content.Length > 3500)
+            return "Content must not exceed 3500 characters.";
+        return null;
+    }
+}
