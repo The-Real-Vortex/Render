@@ -8,6 +8,13 @@
 @implements IAsyncDisposable
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
+    @if (_loadError)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            Posts konnten nicht geladen werden. Bitte Seite neu laden.
+        </MudAlert>
+    }
+
     @foreach (var post in posts)
     {
         <Post @key="post.Id" PostData="@post" />
@@ -24,6 +31,7 @@
 @code {
     private List<PostResponseDto> posts = new();
     private bool _isLoadingMore = false;
+    private bool _loadError = false;
     private int _skip = 0;
     private int _take = 10;
     private Guid _sessionId;
@@ -33,17 +41,25 @@
     {
         if (firstRender)
         {
-            var sessionIdString = await JSRuntime.InvokeAsync<string?>("cookieManager.getCookie", "feedSessionId");
-
-            if (string.IsNullOrEmpty(sessionIdString) || !Guid.TryParse(sessionIdString, out _sessionId))
+            try
             {
-                _sessionId = Guid.NewGuid();
-                await JSRuntime.InvokeVoidAsync("cookieManager.setCookie", "feedSessionId", _sessionId.ToString(), 1);
-            }
+                var sessionIdString = await JSRuntime.InvokeAsync<string?>("cookieManager.getCookie", "feedSessionId");
 
-            _objRef = DotNetObjectReference.Create(this);
-            await LoadMoreData();
-            await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
+                if (string.IsNullOrEmpty(sessionIdString) || !Guid.TryParse(sessionIdString, out _sessionId))
+                {
+                    _sessionId = Guid.NewGuid();
+                    await JSRuntime.InvokeVoidAsync("cookieManager.setCookie", "feedSessionId", _sessionId.ToString(), 1);
+                }
+
+                _objRef = DotNetObjectReference.Create(this);
+                await LoadMoreData();
+                await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
+            }
+            catch
+            {
+                _loadError = true;
+                StateHasChanged();
+            }
         }
     }
 
@@ -53,6 +69,7 @@
         if (_isLoadingMore) return;
 
         _isLoadingMore = true;
+        _loadError = false;
         StateHasChanged();
 
         try
@@ -64,6 +81,10 @@
                 posts.AddRange(newPosts);
                 _skip += _take;
             }
+        }
+        catch
+        {
+            _loadError = true;
         }
         finally
         {

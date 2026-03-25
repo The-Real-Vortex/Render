@@ -7,6 +7,7 @@ namespace Render.Client.State;
 
 public class LoginState(HttpClient http, ISnackbar snackbar)
 {
+    public bool IsAdmin() => CurrentUser?.Role == "Admin";
     public LoginUserModel UserModel { get; set; } = new LoginUserModel();
     public UserResponseDto? CurrentUser { get; private set; }
     public bool RememberMe { get; set; } = false;
@@ -111,6 +112,4 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
         }
         return Array.Empty<string>();
     }
-
-    public bool IsAdmin() => CurrentUser?.Role == "Admin";
 }
