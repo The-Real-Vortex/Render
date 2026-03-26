@@ -8,34 +8,54 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-modelBuilder.Entity<Like>()
-        .HasKey(l => new { l.UserId, l.PostId });
+    {
+        modelBuilder.Entity<Like>()
+            .HasKey(l => new { l.UserId, l.PostId });
 
-    modelBuilder.Entity<Like>()
-        .HasOne(l => l.User)
-        .WithMany(u => u.Likes)
-        .HasForeignKey(l => l.UserId)
-        .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Like>()
+            .HasOne(l => l.User)
+            .WithMany(u => u.Likes)
+            .HasForeignKey(l => l.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-    modelBuilder.Entity<Like>()
-        .HasOne(l => l.Post)
-        .WithMany(p => p.Likes)
-        .HasForeignKey(l => l.PostId)
-        .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Like>()
+            .HasOne(l => l.Post)
+            .WithMany(p => p.Likes)
+            .HasForeignKey(l => l.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-    modelBuilder.Entity<User>()
-        .HasIndex(u => u.Username)
-        .IsUnique();
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique();
 
-    modelBuilder.Entity<User>()
-        .HasIndex(u => u.Email)
-        .IsUnique();
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique();
 
-    modelBuilder.Entity<Post>()
-        .Property(p => p.LikesCount)
-        .HasDefaultValue(0);
-}
+        modelBuilder.Entity<Post>()
+            .Property(p => p.LikesCount)
+            .HasDefaultValue(0);
+
+        // Performance indexes
+        modelBuilder.Entity<Post>()
+            .HasIndex(p => p.CreatedAt)
+            .IsDescending(true)
+            .HasDatabaseName("IX_Posts_CreatedAt");
+
+        modelBuilder.Entity<Post>()
+            .HasIndex(p => p.LikesCount)
+            .IsDescending(true)
+            .HasDatabaseName("IX_Posts_LikesCount");
+
+        modelBuilder.Entity<Post>()
+            .HasIndex(p => new { p.UserId, p.CreatedAt })
+            .IsDescending(false, true)
+            .HasDatabaseName("IX_Posts_UserId_CreatedAt");
+
+        modelBuilder.Entity<Like>()
+            .HasIndex(l => l.UserId)
+            .HasDatabaseName("IX_Likes_UserId");
+    }
 
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Post> Posts { get; set; } = null!;
