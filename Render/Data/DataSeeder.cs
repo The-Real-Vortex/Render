@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// AI GENERATED
+using Microsoft.EntityFrameworkCore;
+using Render.Data;
 using Render.Shared;
 
 namespace Render.Data;
@@ -8,6 +10,26 @@ public class DataSeeder
     private readonly AppDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<DataSeeder> _logger;
+
+    private static readonly string[] FirstNames =
+    [
+        "alice", "bob", "carol", "david", "eva", "frank", "grace", "henry", "iris", "jack",
+        "kate", "liam", "mia", "noah", "olivia", "peter", "quinn", "rosa", "sam", "tina",
+        "uma", "victor", "wendy", "xander", "yara", "zoe", "adam", "bella", "chris", "diana",
+        "ethan", "fiona", "george", "hana", "ivan", "julia", "kevin", "laura", "mike", "nina",
+        "oscar", "paula", "ray", "sara", "tom", "ursula", "val", "will", "xena", "yasmin"
+    ];
+
+    private static readonly string[] Bios =
+    [
+        "Photography lover 📸", "Adventure seeker 🏔️", "Nature enthusiast 🌿",
+        "Urban explorer 🏙️", "Sunset chaser 🌅", "Coffee & code ☕",
+        "Living in the moment ✨", "Traveller 🌍", "Food lover 🍕", "Music fan 🎵",
+        "Hiking addict 🥾", "Beach bum 🏖️", "Dog parent 🐶", "Cat person 🐱",
+        "Gym rat 💪", "Bookworm 📚", "Film buff 🎬", "Tech geek 💻",
+        "Artist 🎨", "Runner 🏃", "Cyclist 🚴", "Yogi 🧘", "Chef 👨‍🍳", "",
+        "", "",
+    ];
 
     private static readonly string[] PostContents =
     [
@@ -70,11 +92,68 @@ public class DataSeeder
         _logger = logger;
     }
 
+    public async Task<int> SeedUsersAsync(int count = 10, CancellationToken cancellationToken = default)
+    {
+        count = Math.Clamp(count, 1, 1000);
+
+        var existingUsernames = await _context.Users
+            .Select(u => u.Username)
+            .ToHashSetAsync(cancellationToken);
+
+        var hashedPassword = BCrypt.Net.BCrypt.HashPassword("Seed_1234!");
+        int created = 0;
+        int attempt = 0;
+
+        while (created < count && attempt < count * 3)
+        {
+            attempt++;
+
+            var baseName = FirstNames[Random.Shared.Next(FirstNames.Length)];
+            var suffix = Random.Shared.Next(1, 9999);
+            var username = $"{baseName}{suffix}";
+
+            if (existingUsernames.Contains(username))
+                continue;
+
+            existingUsernames.Add(username);
+
+            var bio = Bios[Random.Shared.Next(Bios.Length)];
+            var daysAgo = Random.Shared.Next(0, 365);
+
+            _context.Users.Add(new User
+            {
+                Username = username,
+                Email = $"{username}@example.com",
+                Password = hashedPassword,
+                Bio = bio,
+                PhoneNumber = string.Empty,
+                Role = "User",
+                CreatedAt = DateTime.Now.AddDays(-daysAgo)
+            });
+
+            created++;
+
+            if (created % 100 == 0)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Seeded {Count}/{Total} users...", created, count);
+            }
+        }
+
+        if (_context.ChangeTracker.HasChanges())
+            await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("User seeding complete. {Created} users created.", created);
+        return created;
+    }
+
     public async Task<int> SeedPostsAsync(int count = 50, CancellationToken cancellationToken = default)
     {
         var users = await _context.Users.ToListAsync(cancellationToken);
         if (users.Count == 0)
-            throw new InvalidOperationException("No users found. Create at least one user before seeding posts.");
+            throw new InvalidOperationException("No users found. Seed users first or register at least one user.");
+
+        count = Math.Clamp(count, 1, 1000);
 
         var client = _httpClientFactory.CreateClient("picsum");
         int created = 0;
@@ -89,16 +168,15 @@ public class DataSeeder
                 var daysAgo = Random.Shared.Next(0, 90);
                 var hoursAgo = Random.Shared.Next(0, 24);
 
-                var post = new Post
+                _context.Posts.Add(new Post
                 {
                     Content = content,
                     Image = imageBytes,
                     LikesCount = Random.Shared.Next(0, 500000),
                     CreatedAt = DateTime.Now.AddDays(-daysAgo).AddHours(-hoursAgo),
                     UserId = user.Id
-                };
+                });
 
-                _context.Posts.Add(post);
                 created++;
 
                 if (created % 10 == 0)
@@ -116,13 +194,12 @@ public class DataSeeder
         if (_context.ChangeTracker.HasChanges())
             await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Seeding complete. {Created} posts created.", created);
+        _logger.LogInformation("Post seeding complete. {Created} posts created.", created);
         return created;
     }
 
     private static async Task<byte[]> FetchImageAsync(HttpClient client, int seed, CancellationToken cancellationToken)
     {
-        // picsum.photos returns a deterministic random image for a given seed
         var response = await client.GetAsync($"seed/{seed}/400/400", cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsByteArrayAsync(cancellationToken);

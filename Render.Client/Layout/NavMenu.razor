@@ -1,11 +1,44 @@
+@using Render.Client.State
+@inject LoginState LoginState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@implements IDisposable
 
 <MudNavMenu>
     <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="counter" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Counter</MudNavLink>
-    
-    <MudNavLink Href="weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Weather</MudNavLink>
-    <MudNavLink Href="register" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonAdd">Register</MudNavLink>
-    <MudNavLink Href="login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
-    <MudNavLink Href="create-post" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Create">Create Post</MudNavLink>
-    <MudNavLink Href="testpage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Pageview">Test Page</MudNavLink>
+
+    @if (!LoginState.IsAuthenticated())
+    {
+        <MudNavLink Href="register" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonAdd">Register</MudNavLink>
+        <MudNavLink Href="login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
+    }
+    else
+    {
+        <MudNavLink Href="create-post" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Create">Create Post</MudNavLink>
+
+        @if (LoginState.IsAdmin())
+        {
+            <MudText Typo="Typo.caption" Color="Color.Warning" Class="px-4 pt-2">Admin</MudText>
+        }
+
+        <MudNavLink Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">Logout (@LoginState.CurrentUser?.Username)</MudNavLink>
+    }
 </MudNavMenu>
+
+@code {
+    protected override void OnInitialized()
+    {
+        LoginState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        LoginState.OnChange -= StateHasChanged;
+    }
+
+    private async Task HandleLogout()
+    {
+        await LoginState.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+}

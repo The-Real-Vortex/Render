@@ -7,10 +7,14 @@ namespace Render.Client.State;
 
 public class LoginState(HttpClient http, ISnackbar snackbar)
 {
+    public bool IsAdmin() => CurrentUser?.Role == "Admin";
     public LoginUserModel UserModel { get; set; } = new LoginUserModel();
     public UserResponseDto? CurrentUser { get; private set; }
     public bool RememberMe { get; set; } = false;
     public bool IsInitialized { get; private set; } = false;
+
+    public event Action? OnChange;
+    private void NotifyStateChanged() => OnChange?.Invoke();
 
     public async Task LoginUserAsync()
     {
@@ -26,6 +30,7 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
             CurrentUser = await response.Content.ReadFromJsonAsync<UserResponseDto>();
             snackbar.Add("Login successful!", Severity.Success);
             UserModel.Reset();
+            NotifyStateChanged();
         }
         else
         {
@@ -34,20 +39,11 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
         }
     }
 
-    /// <summary>
-    /// Checks if the user is authenticated. If CurrentUser is null, attempts to restore from cookie.
-    /// </summary>
-    public bool IsAuthenticated() 
+    public bool IsAuthenticated()
     {
         return CurrentUser != null;
     }
 
-    /// <summary>
-    /// Attempts to restore the user session from the authentication cookie.
-    /// Call this on app startup to automatically sign in users with valid cookies.
-    /// </summary>
-
-    // made with ai
     public async Task<bool> TryRestoreSessionAsync()
     {
         if (IsInitialized)
@@ -64,13 +60,13 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
                 if (CurrentUser != null)
                 {
                     snackbar.Add($"Welcome back, {CurrentUser.Username}!", Severity.Success);
+                    NotifyStateChanged();
                     return true;
                 }
             }
         }
         catch
         {
-            // snackbar.Add("Failed to restore session.", Severity.Error);
         }
         finally
         {
@@ -90,9 +86,10 @@ public class LoginState(HttpClient http, ISnackbar snackbar)
         {
             snackbar.Add("Failed to log out", Severity.Error);
         }
-        
+
         CurrentUser = null;
         snackbar.Add("Logged out successfully", Severity.Info);
+        NotifyStateChanged();
     }
 
     public async Task<IEnumerable<string>> ValidateEmailAsync(string value)

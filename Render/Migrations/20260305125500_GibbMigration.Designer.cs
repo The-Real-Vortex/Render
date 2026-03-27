@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Render.Data;
 
@@ -11,9 +12,11 @@ using Render.Data;
 namespace Render.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260305125500_GibbMigration")]
+    partial class GibbMigration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -36,9 +39,6 @@ namespace Render.Migrations
                     b.HasKey("UserId", "PostId");
 
                     b.HasIndex("PostId");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("IX_Likes_UserId");
 
                     b.ToTable("Likes");
                 });
@@ -70,17 +70,7 @@ namespace Render.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt")
-                        .IsDescending()
-                        .HasDatabaseName("IX_Posts_CreatedAt");
-
-                    b.HasIndex("LikesCount")
-                        .IsDescending()
-                        .HasDatabaseName("IX_Posts_LikesCount");
-
-                    b.HasIndex("UserId", "CreatedAt")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("IX_Posts_UserId_CreatedAt");
+                    b.HasIndex("UserId");
 
                     b.ToTable("Posts");
                 });
@@ -109,10 +99,6 @@ namespace Render.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 

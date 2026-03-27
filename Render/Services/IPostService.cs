@@ -7,5 +7,6 @@ public interface IPostService
     Task<List<PostResponseDto>> GetPostsAsync(int take = 10, int skip = 0, int? currentUserId = null);
     Task<List<int>> GetAllPostIdsAsync();
     Task<List<PostResponseDto>> GetPostsByIdsAsync(List<int> ids, int? currentUserId = null);
-    Task DeletePostAsync(int postId, int userId);
+    Task DeletePostAsync(int postId, int userId, bool isAdmin = false);
+    Task EditPostAsync(int postId, int requestingUserId, EditPostDto editDto, bool isAdmin);
 }

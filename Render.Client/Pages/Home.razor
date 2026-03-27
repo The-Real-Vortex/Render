@@ -1,11 +1,20 @@
 ﻿@page "/"
 @using Render.Shared.Models
 @using Render.Client.Components
+@using Render.Client.State
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
+@inject LoginState LoginState
 @implements IAsyncDisposable
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
+    @if (_loadError)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            Posts konnten nicht geladen werden. Bitte Seite neu laden.
+        </MudAlert>
+    }
+
     @foreach (var post in posts)
     {
         <Post @key="post.Id" PostData="@post" />
@@ -22,27 +31,35 @@
 @code {
     private List<PostResponseDto> posts = new();
     private bool _isLoadingMore = false;
+    private bool _loadError = false;
     private int _skip = 0;
     private int _take = 10;
     private Guid _sessionId;
-    
     private DotNetObjectReference<Home>? _objRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            var sessionIdString = await JSRuntime.InvokeAsync<string?>("cookieManager.getCookie", "feedSessionId");
-            
-            if (string.IsNullOrEmpty(sessionIdString) || !Guid.TryParse(sessionIdString, out _sessionId))
+            try
             {
-                _sessionId = Guid.NewGuid();
-                await JSRuntime.InvokeVoidAsync("cookieManager.setCookie", "feedSessionId", _sessionId.ToString(), 1);
-            }
+                var sessionIdString = await JSRuntime.InvokeAsync<string?>("cookieManager.getCookie", "feedSessionId");
 
-            _objRef = DotNetObjectReference.Create(this);
-            
-            await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
+                if (string.IsNullOrEmpty(sessionIdString) || !Guid.TryParse(sessionIdString, out _sessionId))
+                {
+                    _sessionId = Guid.NewGuid();
+                    await JSRuntime.InvokeVoidAsync("cookieManager.setCookie", "feedSessionId", _sessionId.ToString(), 1);
+                }
+
+                _objRef = DotNetObjectReference.Create(this);
+                await LoadMoreData();
+                await JSRuntime.InvokeVoidAsync("infiniteScroll.initialize", _objRef, "scroll-sensor");
+            }
+            catch
+            {
+                _loadError = true;
+                StateHasChanged();
+            }
         }
     }
 
@@ -50,11 +67,12 @@
     public async Task LoadMoreData()
     {
         if (_isLoadingMore) return;
-        
+
         _isLoadingMore = true;
+        _loadError = false;
         StateHasChanged();
 
-        try 
+        try
         {
             var newPosts = await Http.GetFromJsonAsync<List<PostResponseDto>>(
                 $"api/post?skip={_skip}&take={_take}&sessionId={_sessionId}");
@@ -64,7 +82,11 @@
                 _skip += _take;
             }
         }
-        finally 
+        catch
+        {
+            _loadError = true;
+        }
+        finally
         {
             _isLoadingMore = false;
             StateHasChanged();

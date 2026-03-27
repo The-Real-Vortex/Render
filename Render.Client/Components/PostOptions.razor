@@ -1,5 +1,8 @@
 ﻿@inject HttpClient Http
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Render.Client.State
+@inject LoginState LoginState
 
 <MudPaper MinWidth="160px" Class="py-1" Elevation="4">
     <MudList T="string" Dense="true" DisablePadding="true">
@@ -7,8 +10,11 @@
             <MudText Typo="Typo.body2">Copy link</MudText>
         </MudListItem>
         <MudDivider />
-        @if (IsOwner)
+        @if (IsOwner || LoginState.IsAdmin())
         {
+            <MudListItem OnClick="NavigateToEdit">
+                <MudText Typo="Typo.body2">Edit Post</MudText>
+            </MudListItem>
             <MudListItem OnClick="DeletePost">
                 <MudText Typo="Typo.body2" Color="Color.Error">Delete Post</MudText>
             </MudListItem>
@@ -40,12 +46,18 @@
         await OnClose.InvokeAsync();
     }
 
+    private async Task NavigateToEdit()
+    {
+        await OnClose.InvokeAsync();
+        Navigation.NavigateTo($"/edit-post/{PostId}");
+    }
+
     private async Task DeletePost()
     {
         var response = await Http.DeleteAsync($"api/post/{PostId}");
         if (response.IsSuccessStatusCode)
         {
-            Snackbar.Add("Post deleted", Severity.Error);
+            Snackbar.Add("Post deleted", Severity.Success);
             await OnDeleted.InvokeAsync();
         }
         else

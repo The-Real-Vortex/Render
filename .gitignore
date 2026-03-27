@@ -218,6 +218,10 @@ ClientBin/
 ~$*
 *~
 *.dbmdl
+
+# Redis local persistence output
+redis/data/*
+!redis/data/.gitkeep
 *.dbproj.schemaview
 *.jfm
 *.pfx
